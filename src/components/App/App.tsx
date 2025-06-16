@@ -4,7 +4,7 @@ import { fetchNotes } from "../../services/noteService";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import css from "./App.module.css";
 import NoteList from "../NoteList/NoteList";
-import NoteModal from "../NoteModal/NoteModal";
+import Modal from "../Modal/NoteModal";
 import SearchBox from "../SearchBox/SearchBox";
 import Pagination from "../Pagination/Pagination";
 import ErrorMessage from "../ErrorMessage/ErrorMessage";
@@ -46,7 +46,7 @@ export default function App() {
         <ErrorMessage message="Something went wrong. Please try again." />
       )}
       {data && <NoteList notes={data.notes} />}
-      {isModalOpen && <NoteModal onClose={closeModal} onSuccess={closeModal} />}
+      {isModalOpen && <Modal onClose={closeModal} onSuccess={closeModal} />}
     </div>
   );
 }
