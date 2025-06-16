@@ -1,98 +1,60 @@
-import * as Yup from 'yup';
-import { Field, Form, Formik, FormikHelpers, ErrorMessage } from 'formik';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createNote } from '../../services/noteService';
-import css from './NoteForm.module.css';
+iimport { useState } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useDebouncedCallback } from "use-debounce";
+import Modal from "../Modal/Modal";
+import NoteForm from "../NoteForm/NoteForm";
+import NoteList from "../NoteList/NoteList";
+import SearchBox from "../SearchBox/SearchBox";
+import Pagination from "../Pagination/Pagination";
+import { fetchNotes } from "../../services/noteService";
+import css from "./App.module.css";
 
-const NoteSchema = Yup.object().shape({
-  title: Yup.string()
-    .min(3, 'Title must be at least 3 characters')
-    .required('Title is required'),
-  content: Yup.string().max(500, 'Content must be less than 500 characters'),
+export default function App() {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-});
-
-interface NoteFormProps {
-  onClose: () => void;
-}
-
-interface FormValues {
-  title: string;
-  content: string;
-  tag: string;
-}
-
-const initialValues: FormValues = {
-  title: '',
-  content: '',
-  tag: 'Todo',
-};
-
-export default function NoteForm({ onClose }: NoteFormProps) {
-  const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: createNote,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notes'] });
-      onClose();
-    },
+  const { data } = useQuery({
+    queryKey: ["notes", searchQuery, currentPage],
+    queryFn: () => fetchNotes(searchQuery, currentPage),
+    placeholderData: keepPreviousData,
   });
 
-  const handleSubmit = (
-    values: FormValues,
-    actions: FormikHelpers<FormValues>,
-  ) => {
-    mutation.mutate(values);
-    actions.resetForm();
+  const toggleModal = () => {
+    setIsModalOpen(!isModalOpen);
   };
 
+  const changeSearchQuery = useDebouncedCallback((newQuery: string) => {
+    setCurrentPage(1);
+    setSearchQuery(newQuery);
+  }, 300);
+
+  const totalPages = data?.totalPages ?? 0;
+  const notes = data?.notes ?? [];
+
   return (
-    <Formik
-      initialValues={initialValues}
-      onSubmit={handleSubmit}
-      validationSchema={NoteSchema}
-    >
-      <Form className={css.form}>
-        <div className={css.formGroup}>
-          <label htmlFor="title">Title</label>
-          <Field id="title" type="text" name="title" className={css.input} />
-          <ErrorMessage name="title" component="span" className={css.error} />
-        </div>
-        <div className={css.formGroup}>
-          <label htmlFor="content">Content</label>
-          <Field
-            id="content"
-            as="textarea"
-            name="content"
-            rows="8"
-            className={css.textarea}
+    <div className={css.app}>
+      <header className={css.toolbar}>
+        <SearchBox onSearch={changeSearchQuery} />
+        {totalPages > 1 && (
+          <Pagination
+            totalPages={totalPages}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
           />
-          <ErrorMessage name="content" component="span" className={css.error} />
-        </div>
-        <div className={css.formGroup}>
-          <label htmlFor=""tag"">Tag</label>
-          <Field id="tag" as="select" name="tag" className={css.select}>
-            <option value="Todo">Todo</option>
-            <option value="Work">Work</option>
-            <option value="Personal">Personal</option>
-            <option value="Meeting">Meeting</option>
-            <option value="Shopping">Shopping</option>
-          </Field>
-          <ErrorMessage name="tag" component="span" className={css.error} />
-        </div>
-        <div className={css.actions}>
-          <button type="button" className={css.cancelButton} onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className={css.submitButton}
-            disabled={mutation.isPending}
-          >
-            Create note
-          </button>
-        </div>
-      </Form>
-    </Formik>
+        )}
+        <button className={css.button} onClick={toggleModal}>
+          Create note +
+        </button>
+      </header>
+
+      {isModalOpen && (
+        <Modal onClose={toggleModal}>
+          <NoteForm onClose={toggleModal} />
+        </Modal>
+      )}
+
+      {notes.length > 0 && <NoteList notes={notes} />}
+    </div>
   );
 }
